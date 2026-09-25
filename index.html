@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>My Trading Signals</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f7fa;color:#15171a;font:14px Arial,sans-serif}
+header{height:64px;background:#fff;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between;padding:0 18px;position:sticky;top:0;z-index:3}
+.brand{font-size:20px;font-weight:800}.live{font-size:13px}.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#999;margin-right:6px}
+main{max-width:1180px;margin:auto;padding:16px}.row{display:grid;grid-template-columns:1.4fr .8fr;gap:14px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:14px;box-shadow:0 1px 2px #00000008}
+.price{font-size:31px;font-weight:800;margin:6px 0}.muted{color:#6b7280;font-size:12px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.metric{background:#f8fafc;border-radius:10px;padding:12px}.metric b{display:block;font-size:16px;margin-top:5px}
+.signal{font-size:27px;font-weight:900;margin:8px 0}.ce{color:#087f5b}.pe{color:#c92a2a}.wait{color:#555}
+button{border:0;border-radius:9px;padding:11px 15px;background:#111;color:white;font-weight:700;cursor:pointer}.btn2{background:#eef0f3;color:#111}
+.watch{display:flex;gap:8px;overflow:auto}.watch button{white-space:nowrap}.watch button.active{outline:2px solid #111}
+table{width:100%;border-collapse:collapse}td,th{padding:10px;border-bottom:1px solid #eee;text-align:left}
+canvas{width:100%;height:360px;border-radius:10px;background:#fff}.small{font-size:11px}
+@media(max-width:800px){.row{grid-template-columns:1fr}.grid{grid-template-columns:repeat(2,1fr)}header{height:58px}}
+</style></head>
+<body>
+<header><div class="brand">My Trading Signals</div><div class="live"><span id="dot" class="dot"></span><span id="status">Disconnected</span></div></header>
+<main>
+<div class="card"><div class="watch">
+<button id="niftyBtn" onclick="selectSymbol('NSE:NIFTY50-INDEX')">NIFTY 50</button>
+<button onclick="selectSymbol('NSE:NIFTYBANK-INDEX')">BANK NIFTY</button>
+</div></div>
+<div class="row">
+<section>
+<div class="card"><div class="muted" id="name">NIFTY 50</div><div class="price" id="price">--</div><div class="muted" id="updated">Waiting for live data…</div></div>
+<div class="card"><h3>Signal</h3><div id="signal" class="signal wait">WAIT</div><div class="muted">EMA 9/21 + VWAP + RSI 14. Signals are technical alerts, not guaranteed outcomes.</div></div>
+<div class="card"><div class="grid">
+<div class="metric">EMA 9<b id="ema9">--</b></div><div class="metric">EMA 21<b id="ema21">--</b></div>
+<div class="metric">VWAP<b id="vwap">--</b></div><div class="metric">RSI 14<b id="rsi">--</b></div>
+</div></div>
+</section>
+<aside>
+<div class="card"><h3>FYERS</h3><p class="muted">Your secret stays on the server. Chrome only receives live market data.</p><button onclick="location.href='/login'">Connect FYERS</button><p id="msg" class="muted"></p></div>
+<div class="card"><h3>Rules</h3><div class="small">CE when price &gt; EMA9 &gt; EMA21, price &gt; VWAP and RSI ≥ 55.<br><br>PE when price &lt; EMA9 &lt; EMA21, price &lt; VWAP and RSI ≤ 45.<br><br>Otherwise WAIT.</div></div>
+</aside></div>
+<div class="card"><h3>Live chart</h3><canvas id="chart"></canvas></div>
+<div class="card"><h3>Connection</h3><div class="muted">No manual refresh. The server maintains the FYERS WebSocket and reconnects after a disconnect.</div></div>
+</main>
+<script>
+const state={symbol:"NSE:NIFTY50-INDEX",ticks:{},bars:{}};
+const names={"NSE:NIFTY50-INDEX":"NIFTY 50","NSE:NIFTYBANK-INDEX":"BANK NIFTY"};
+function fmt(x){return x==null||Number.isNaN(x)?"--":Number(x).toLocaleString("en-IN",{maximumFractionDigits:2})}
+function selectSymbol(s){state.symbol=s;document.getElementById("name").textContent=names[s]||s;document.querySelectorAll(".watch button").forEach(b=>b.classList.remove("active"));event?.target?.classList.add("active");render()}
+function rsi(a,n=14){if(a.length<n+1)return null;let g=0,l=0;for(let i=a.length-n;i<a.length;i++){let d=a[i]-a[i-1];d>0?g+=d:l-=d}return l===0?100:100-100/(1+g/l)}
+function indicators(){
+ const bars=(state.bars[state.symbol]||[]).slice(-200); if(!bars.length)return {};
+ const closes=bars.map(x=>x.c), p=closes.at(-1);
+ function ema(n){let e=closes[0],k=2/(n+1);for(let i=1;i<closes.length;i++)e=closes[i]*k+e*(1-k);return e}
+ const e9=closes.length>=9?ema(9):null,e21=closes.length>=21?ema(21):null;
+ let pv=0,v=0;for(const x of bars){pv+=x.c*x.v;v+=x.v}const vw=v?pv/v:p;
+ return {p,e9,e21,vw,r:rsi(closes)};
+}
+function render(){
+ const t=state.ticks[state.symbol],i=indicators(); if(t)document.getElementById("price").textContent=fmt(t.ltp);
+ document.getElementById("ema9").textContent=fmt(i.e9);document.getElementById("ema21").textContent=fmt(i.e21);
+ document.getElementById("vwap").textContent=fmt(i.vw);document.getElementById("rsi").textContent=i.r==null?"--":i.r.toFixed(2);
+ let s="WAIT",cl="wait";if(i.r!=null&&i.p>i.e9&&i.e9>i.e21&&i.p>i.vw&&i.r>=55){s="BUY CE";cl="ce"}else if(i.r!=null&&i.p<i.e9&&i.e9<i.e21&&i.p<i.vw&&i.r<=45){s="BUY PE";cl="pe"}
+ const el=document.getElementById("signal");el.textContent=s;el.className="signal "+cl;
+ document.getElementById("updated").textContent=t?"Live • "+new Date(t.timestamp||Date.now()).toLocaleTimeString():"Waiting for live data…";draw();
+}
+function draw(){const c=document.getElementById("chart"),dpr=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;const x=c.getContext("2d");x.scale(dpr,dpr);x.clearRect(0,0,w,h);const b=(state.bars[state.symbol]||[]).slice(-80);if(!b.length)return;let mn=Math.min(...b.map(z=>z.l)),mx=Math.max(...b.map(z=>z.h));const pad=20;for(let j=0;j<b.length;j++){let z=b[j],X=pad+j*(w-2*pad)/Math.max(1,b.length-1),yo=h-pad-(z.o-mn)/(mx-mn||1)*(h-2*pad),yc=h-pad-(z.c-mn)/(mx-mn||1)*(h-2*pad),yh=h-pad-(z.h-mn)/(mx-mn||1)*(h-2*pad),yl=h-pad-(z.l-mn)/(mx-mn||1)*(h-2*pad);x.beginPath();x.moveTo(X,yh);x.lineTo(X,yl);x.moveTo(X-3,yo);x.lineTo(X-3,yc);x.stroke();x.beginPath();x.moveTo(X+3,yo);x.lineTo(X+3,yc);x.stroke()}}
+const ws=new WebSocket((location.protocol==="https:"?"wss://":"ws://")+location.host);
+ws.onopen=()=>document.getElementById("msg").textContent="Dashboard connected.";
+ws.onmessage=e=>{let d;try{d=JSON.parse(e.data)}catch{return}
+ if(d.type==="status"){document.getElementById("status").textContent=d.connected?"Live":"Disconnected";document.getElementById("dot").style.background=d.connected?"#16a34a":"#999"}
+ if(d.type==="error")document.getElementById("msg").textContent=d.message;
+ if(d.type==="tick"){state.ticks[d.symbol]=d; if(d.candle){state.bars[d.symbol]=state.bars[d.symbol]||[];let a=state.bars[d.symbol],last=a.at(-1);if(!last||last.t!==d.candle.t)a.push({...d.candle});else a[a.length-1]={...d.candle};state.bars[d.symbol]=a.slice(-500)}render()}
+};
+window.addEventListener("resize",draw);
+document.getElementById("niftyBtn").classList.add("active");
+</script></body></html>

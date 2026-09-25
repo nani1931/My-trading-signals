@@ -1,0 +1,42 @@
+FYERS CHROME-ONLY DASHBOARD — FULL V2
+
+WHAT THIS IS
+- Chrome is the only client you use.
+- A small Node.js server keeps your FYERS Secret Key out of browser code.
+- The server performs FYERS login/token exchange and maintains the live WebSocket.
+- The browser receives live ticks and displays NIFTY 50 / BANK NIFTY, EMA 9/21, VWAP, RSI and CE/PE/WAIT alerts.
+- It does NOT place orders yet.
+
+IMPORTANT
+Do not send your FYERS Secret Key to ChatGPT or anyone else.
+Do not paste it into public GitHub/browser code.
+
+LOCAL TESTING (requires Node.js only for the server)
+1. Install Node.js 20+ on the machine that will host the server.
+2. Copy .env.example to .env.
+3. Put your FYERS App ID and Secret in .env.
+4. Set the redirect URI in FYERS to the exact URL in .env:
+   http://localhost:3000/callback
+5. Run:
+   npm install
+   npm start
+6. Open Chrome:
+   http://localhost:3000
+7. Click Connect FYERS and complete FYERS login.
+8. The dashboard should become Live. Do not refresh repeatedly.
+
+PRODUCTION / CHROME-ONLY USE
+For a true "open a URL in Chrome and nothing else" setup, host this Node server on a server/cloud service with HTTPS.
+Set:
+  BASE_URL=https://YOUR-DOMAIN
+  FYERS_REDIRECT_URI=https://YOUR-DOMAIN/callback
+Then add the exact HTTPS callback URL to the FYERS App.
+The secret stays as an environment variable on the server.
+
+FYERS CURRENT API NOTES
+- FYERS API v3 uses auth_code -> access_token authentication.
+- The appIdHash is SHA-256(client_id + secret).
+- Market data uses a persistent WebSocket and symbolUpdate can provide OHLCV.
+- Current FYERS retail API-trading rules (from Apr 1, 2026) require compliant setup/static IP for order placement. This V2 only reads market data and does not place orders.
+
+The dashboard is not financial advice and its signals are not guaranteed.
